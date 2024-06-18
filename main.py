@@ -1,3 +1,4 @@
+import json
 from decimal import Decimal
 
 from fastapi import FastAPI, File, UploadFile
@@ -5,7 +6,7 @@ from fastapi.responses import FileResponse
 
 from typing import List
 from io import StringIO
-from models import MafCard, parse_catalog_from_str
+from models import MafCard, parse_catalog_from_str, parse_territory_list
 
 from decouple import config
 
@@ -14,6 +15,8 @@ from motor.motor_asyncio import AsyncIOMotorClient
 from bson.codec_options import TypeRegistry
 from bson.decimal128 import Decimal128
 from bson.codec_options import TypeCodec
+
+from io import BytesIO
 
 
 class DecimalCodec(TypeCodec):
@@ -71,31 +74,21 @@ async def upload_maf_card(maf_card_files: List[UploadFile] = File(...)):
     return {"message": f"got {len(maf_cards)} new MAF cards"}
 
 
-import openpyxl as xl
-
-from io import BytesIO
-
 @app.post("/maf/territories")
 async def upload_territory_list(territory_plan_file: UploadFile):
     if territory_plan_file.filename.endswith('.xlsx'):
         f_terr_plan = await territory_plan_file.read()
         xlsx = BytesIO(f_terr_plan)
-        terr_xl = xl.load_workbook(xlsx)
-        first_page_name = terr_xl.sheetnames[0]
-        plan_page = terr_xl[first_page_name]
-        first_row = True
 
-        for row in plan_page.rows:
-            if first_row:
-                first_row = False
-                for cell in row:
-                    print(f"{cell.value}")
+        territories = parse_territory_list(xlsx)
 
-            else:
-                print("meeep")
 
-        print(f"uploaded territory plan {terr_xl}")
 
+        print(f"uploaded territory plan")
+
+    return {
+        "result": "ok"
+    }
 
 
 PLANNER_DB = "landscape_planner_data"

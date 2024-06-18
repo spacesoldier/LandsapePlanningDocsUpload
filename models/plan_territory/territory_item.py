@@ -3,6 +3,7 @@ from typing import List, Callable
 
 
 class TerritoryItem(BaseModel):
+    terr_id: str                # id территории = uid внешнего контура
     district: str               # Округ
     address: str                # Адрес
     area_type: str              # Тип площадки
@@ -13,4 +14,5 @@ class TerritoryItem(BaseModel):
     sok_sys_name: str           # СОК.Благоустройство Наименование
     polygonPoints: List         # Полигоны в АСУ ОДС(план - схемы)
     wgs84: List                 # Координаты wgs84
+    polygons: dict
 

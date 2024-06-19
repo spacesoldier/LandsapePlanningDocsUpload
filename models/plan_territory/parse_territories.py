@@ -15,6 +15,10 @@ def combine_points(mggt, wgs84):
     return output
 
 
+SUPER_AREA_TYPE_NAME = "super_area"
+REGULAR_AREA_TYPE_NAME = "area"
+
+
 def parse_territory_list(excel_content):
     terr_xl = xl.load_workbook(excel_content)
     first_page_name = terr_xl.sheetnames[0]
@@ -24,13 +28,16 @@ def parse_territory_list(excel_content):
     territory_drafts = []
 
     territory_types = set()
+    terr_type_classes = {
+                            "super": set(),
+                            "regular": set()
+                        }
 
     territories = {
         "geo_cards": territory_drafts,
-        "area_types": territory_types
+        "area_types": territory_types,
+        "area_types_classes": terr_type_classes
     }
-
-
 
     for row in plan_page.rows:
         if first_row:
@@ -56,14 +63,25 @@ def parse_territory_list(excel_content):
             except Exception:
                 print("row has no mggt data")
 
+            terr_surface = row[4].value
+
+            if isinstance(terr_surface, str):
+                terr_surface = terr_surface.strip().replace(" ", "").replace(",", ".")
+
             territory_draft = {
-                "terr_info_full": " ---- ".join(map(lambda x: str(x.value), row[1:-2])),
+                "district": row[1].value,
+                "address": row[2].value,
+                "area_type": row[3].value,
+                "surface": terr_surface,
+                "ods_sys_addr": row[5].value,
+                "ods_sys_id": row[6].value,
+                "dkr_address": row[7].value,
+                "sok_sys_name": row[8].value,
                 "mggt": mggt_points,
                 "wgs84": wgs84,
-                "polygons": {}
+                "polygons": {},
+                "terr_info_full": " ---- ".join(map(lambda x: str(x.value), row[1:-2])),
             }
-
-            territory_types.add(row[3].value)
 
             if len(mggt_points) > 0 and len(wgs84) > 0:
 
@@ -107,6 +125,7 @@ def parse_territory_list(excel_content):
                 territory_draft["terr_id"] = str(uuid.uuid4())
                 print(f"no polygons in row {territory_draft['terr_id']}")
 
+
     for terr in territories["geo_cards"]:
         curr_terr_id = terr["terr_id"]
         territory_contains = []
@@ -119,10 +138,17 @@ def parse_territory_list(excel_content):
                     if geo_pd_contour_to_check is not None:
                         if curr_geo_pd_contour.contains(geo_pd_contour_to_check):
                             territory_contains.append(check_terr_id)
+
+        area_type = terr["area_type"]
+        territory_types.add(area_type)
         if len(territory_contains) > 0:
-            terr["terr_class"] = "area"
+            terr["terr_class"] = SUPER_AREA_TYPE_NAME
+            terr_type_classes["super"].add(area_type)
+
         else:
-            terr["terr_class"] = "court"
+            terr["terr_class"] = REGULAR_AREA_TYPE_NAME
+            if area_type not in terr_type_classes["super"]:
+                terr_type_classes["regular"].add(area_type)
 
         terr["contains"] = territory_contains
 

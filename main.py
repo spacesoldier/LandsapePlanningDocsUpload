@@ -82,41 +82,47 @@ async def upload_territory_list(territory_plan_file: UploadFile):
 
         territories = parse_territory_list(xlsx)
 
-        terr_classes = territories["area_types_classes"]
+        await update_territory_types_in_db(territories)
 
-        extracted_terr_types = []
+        mongo_terr_cards = app.planner_db.get_collection("territory_cards")
 
-        types_to_save = []
+        terr_data_to_save = territories["territory_model_cards"]
 
-        mongo_terr_types = app.planner_db.get_collection("territory_types")
-        for terr_class_name in terr_classes.keys():
-            for t_type in terr_classes[terr_class_name]:
-                terr_type_to_save = {
-                                        "terr_type_name": t_type,
-                                        "terr_class": terr_class_name
-                                    }
-                extracted_terr_types.append(terr_type_to_save)
-        exist_t_type_cursor = mongo_terr_types.find({}, {"terr_type_name": 1})
-        existing_t_types = await exist_t_type_cursor.to_list(length=100)
-        known_t_types = map(lambda t: t["terr_type_name"], existing_t_types)
-
-        for terr_type in extracted_terr_types:
-            terr_type_name = terr_type["terr_type_name"]
-            if terr_type_name not in known_t_types:
-                types_to_save.append(terr_type)
-
-        if len(types_to_save) > 0:
-            save_res = await mongo_terr_types.insert_many(types_to_save)
-            print(f"{len(types_to_save)} new territory type(s) saved")
-
-        print(f"uploaded territory plan")
+        write_result = await mongo_terr_cards.insert_many(terr.model_dump() for terr in terr_data_to_save)
+        if write_result.acknowledged:
+            print(f"uploaded {len(write_result.inserted_ids)} items of territory plan")
 
     return {
         "result": "ok"
     }
 
 
+async def update_territory_types_in_db(territories):
+    terr_classes = territories["area_types_classes"]
+    extracted_terr_types = []
+    types_to_save = []
+    mongo_terr_types = app.planner_db.get_collection("territory_types")
+    for terr_class_name in terr_classes.keys():
+        for t_type in terr_classes[terr_class_name]:
+            terr_type_to_save = {
+                "terr_type_name": t_type,
+                "terr_class": terr_class_name
+            }
+            extracted_terr_types.append(terr_type_to_save)
+    exist_t_type_cursor = mongo_terr_types.find({}, {"terr_type_name": 1})
+    existing_t_types = await exist_t_type_cursor.to_list(length=100)
+    known_t_types = map(lambda t: t["terr_type_name"], existing_t_types)
+    for terr_type in extracted_terr_types:
+        terr_type_name = terr_type["terr_type_name"]
+        if terr_type_name not in known_t_types:
+            types_to_save.append(terr_type)
+    if len(types_to_save) > 0:
+        save_res = await mongo_terr_types.insert_many(types_to_save)
+        print(f"{len(types_to_save)} new territory type(s) saved")
+
+
 PLANNER_DB = "landscape_planner_data"
+
 
 @app.on_event("startup")
 async def connect_to_mongo():

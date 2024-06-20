@@ -6,7 +6,7 @@ from fastapi.responses import FileResponse
 
 from typing import List
 from io import StringIO
-from models import MafCard, parse_catalog_from_str, parse_territory_list
+from models import MafCard, parse_catalog_from_str, parse_territory_list, AreaDemography, parse_area_demography
 
 from decouple import config
 
@@ -74,7 +74,7 @@ async def upload_maf_card(maf_card_files: List[UploadFile] = File(...)):
     return {"message": f"got {len(maf_cards)} new MAF cards"}
 
 
-@app.post("/maf/territories")
+@app.post("/maf/territories/develop")
 async def upload_territory_list(territory_plan_file: UploadFile):
     if territory_plan_file.filename.endswith('.xlsx'):
         f_terr_plan = await territory_plan_file.read()
@@ -91,6 +91,45 @@ async def upload_territory_list(territory_plan_file: UploadFile):
         write_result = await mongo_terr_cards.insert_many(terr.model_dump() for terr in terr_data_to_save)
         if write_result.acknowledged:
             print(f"uploaded {len(write_result.inserted_ids)} items of territory plan")
+
+    return {
+        "result": "ok"
+    }
+
+
+async def update_areas_add_demography(dem_data: list):
+    mongo_terr_cards = app.planner_db.get_collection("territory_cards")
+    update_count = 0
+    for item in dem_data:
+        if item["total_people"] > 0:
+            item_id = item["area_id"]
+            data = await mongo_terr_cards.find_one({"ods_sys_id": item_id})
+            if "demography" not in data:
+                update_res = await mongo_terr_cards.update_one(
+                                                                {"ods_sys_id": item_id},
+                                                                {"$set": {"demography": [item]}}
+                                                              )
+                print(f"add demography to area id {item_id}")
+                update_count += 1
+            else:
+                update_res = await mongo_terr_cards.update_one(
+                                                                    {"ods_sys_id": item_id},
+                                                                    {"$push": {"demography": item}}
+                                                                )
+                print(f"area id {item_id} already has demography data, append new value")
+
+    print(f"updated {update_count} area records in database")
+
+
+@app.post("/maf/territories/demography")
+async def upload_area_demography(demography_file: UploadFile):
+    if demography_file.filename.endswith('.xlsx'):
+        f_area_dem = await demography_file.read()
+        xlsx = BytesIO(f_area_dem)
+
+        demography_data = parse_area_demography(xlsx)
+        await update_areas_add_demography(demography_data["parsed_records"])
+
 
     return {
         "result": "ok"

@@ -1,5 +1,5 @@
 from bs4 import BeautifulSoup
-from .maf_card import MafCard, map_field
+from mafs.logic.maf_card import MafCard, map_field
 
 
 def find_ter_types_list(bs_ter_type_tag):

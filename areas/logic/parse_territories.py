@@ -3,7 +3,7 @@ import uuid
 import json
 from shapely.geometry import Polygon
 
-from .territory_item import  TerritoryItem
+from areas.logic.territory_item import TerritoryItem
 
 
 def combine_points(mggt, wgs84):
@@ -112,6 +112,16 @@ def parse_territory_list(excel_content):
                     territory_draft["polygons"][poly["uid"]] = poly
 
                 wgs84_polygons_marked = territory_draft["polygons"]
+
+
+                #TODO: check if the case is still actual
+                # given the provided xlsx file with WGS84 data
+                # we have to swap lat and lon to obtain correct coordinates
+                for poly_key in wgs84_polygons_marked:
+                    poly_wgs84 = wgs84_polygons_marked[poly_key]["wgs84"]
+                    for point in poly_wgs84:
+                        point.reverse()
+                    print("meep")
 
                 if len(wgs84_polygons_marked.keys()) > 1:
                     for poly_id in wgs84_polygons_marked.keys():

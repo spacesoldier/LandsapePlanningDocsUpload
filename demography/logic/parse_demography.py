@@ -1,7 +1,7 @@
 import openpyxl as xl
 import uuid
 
-from .area_demography import AreaDemography
+from demography.logic.area_demography import AreaDemography
 
 
 def parse_area_demography(excel_content):
